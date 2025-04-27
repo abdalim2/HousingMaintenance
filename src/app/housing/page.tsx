@@ -10,6 +10,7 @@ import {
   testDatabaseConnection
 } from '@/lib/services/housingService';
 import { ResidentialComplex, Building, Room, Facility } from '@/models/types';
+import HousingVisualization from '@/components/HousingVisualization';
 
 export default function HousingPage() {
   const [complexes, setComplexes] = useState<ResidentialComplex[]>([]);
@@ -20,50 +21,44 @@ export default function HousingPage() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'rooms' | 'facilities'>('rooms');
+  const [activeTab, setActiveTab] = useState<'visualization' | 'rooms' | 'facilities'>('visualization');
   
   const [showAddComplexModal, setShowAddComplexModal] = useState(false);
   const [newComplex, setNewComplex] = useState({ name: '', location: '', description: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Safe data fetching utility that handles errors properly
-  const safeDataFetch = async <T,>(
-    fetchFn: () => Promise<T>,
-    errorMessage: string,
-    onSuccess?: (data: T) => void
-  ) => {
+  const safeDataFetch = async <T,>(fetchFn: () => Promise<T>, errorMessage: string): Promise<T | undefined> => {
     try {
       setLoading(true);
       setError(null);
-      const result = await fetchFn();
-      if (onSuccess) onSuccess(result);
-      return result;
+      return await fetchFn();
     } catch (err) {
+      console.error(err);
       setError(errorMessage);
-      return null;
+      return undefined;
     } finally {
       setLoading(false);
     }
   };
 
+  // Load all complexes on component mount
   useEffect(() => {
-    const fetchComplexes = async () => {
+    const loadComplexes = async () => {
       await safeDataFetch(
         async () => {
           const data = await getComplexes();
           setComplexes(data);
-          if (data.length > 0) {
-            setSelectedComplex(data[0].id);
-          }
           return data;
         },
         'فشل في جلب المجمعات السكنية. يرجى التحقق من الاتصال والمحاولة مرة أخرى.'
       );
     };
 
-    fetchComplexes();
+    loadComplexes();
   }, []);
 
+  // Load buildings when a complex is selected
   useEffect(() => {
     if (selectedComplex) {
       const fetchBuildings = async () => {
@@ -77,11 +72,11 @@ export default function HousingPage() {
           'فشل في جلب المباني. يرجى التحقق من الاتصال والمحاولة مرة أخرى.'
         );
       };
-
       fetchBuildings();
     }
   }, [selectedComplex]);
 
+  // Load rooms and facilities when a building is selected
   useEffect(() => {
     if (selectedBuilding) {
       const fetchRoomsAndFacilities = async () => {
@@ -89,9 +84,8 @@ export default function HousingPage() {
           async () => {
             const [roomsData, facilitiesData] = await Promise.all([
               getRooms(selectedBuilding),
-              getFacilities(selectedComplex || undefined, selectedBuilding || undefined)
+              selectedComplex ? getFacilities(selectedComplex) : Promise.resolve([])
             ]);
-            
             setRooms(roomsData);
             setFacilities(facilitiesData);
             return { rooms: roomsData, facilities: facilitiesData };
@@ -99,339 +93,238 @@ export default function HousingPage() {
           'فشل في جلب الغرف والمرافق. يرجى التحقق من الاتصال والمحاولة مرة أخرى.'
         );
       };
-
       fetchRoomsAndFacilities();
     }
   }, [selectedBuilding, selectedComplex]);
 
   const handleAddComplex = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!newComplex.name || !newComplex.location) {
-      setError('يرجى ملء الحقول المطلوبة');
+      setError('الاسم والموقع مطلوبان');
       return;
     }
-    
+
     setIsSubmitting(true);
-    setError(null);
-    
     try {
-      console.log('بيانات المجمع المراد إضافته:', newComplex);
-      
-      // اختبار الاتصال بقاعدة البيانات أولاً
-      const connectionSuccess = await testDatabaseConnection();
-      if (!connectionSuccess) {
-        throw new Error('فشل الاتصال بقاعدة البيانات');
-      }
-      
-      const complex = await createComplex({
-        name: newComplex.name,
-        location: newComplex.location,
-        description: newComplex.description || ''
+      const createdComplex = await createComplex({
+        ...newComplex,
+        buildings: []
       });
-      
-      if (!complex) {
-        throw new Error('لم يتم إرجاع بيانات بعد إضافة المجمع');
-      }
-      
-      console.log('تمت إضافة المجمع بنجاح:', complex);
-      
-      // تحديث واجهة المستخدم
-      setComplexes(prev => [...prev, complex]);
-      setSelectedComplex(complex.id);
+      setComplexes(prev => [...prev, createdComplex]);
       setNewComplex({ name: '', location: '', description: '' });
       setShowAddComplexModal(false);
-    } catch (err: any) {
-      console.error('خطأ في إضافة المجمع:', err);
-      
-      // تحسين عرض رسائل الخطأ
-      let errorMessage = 'فشل في إنشاء المجمع السكني';
-      
-      if (err.message) {
-        errorMessage += `: ${err.message}`;
-      }
-      
-      setError(errorMessage);
+    } catch (error) {
+      console.error('Error creating complex:', error);
+      setError('حدث خطأ أثناء إنشاء المجمع. يرجى المحاولة مرة أخرى.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getRoomStatusClass = (status: Room['status']) => {
-    switch (status) {
-      case 'available':
-        return 'bg-green-100 text-green-800';
-      case 'occupied':
-        return 'bg-blue-100 text-blue-800';
-      case 'maintenance':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const handleSelectComplex = (complexId: string) => {
+    setSelectedComplex(complexId);
   };
 
-  const getRoomStatusLabel = (status: Room['status']) => {
-    switch (status) {
-      case 'available':
-        return 'متاح';
-      case 'occupied':
-        return 'مشغول';
-      case 'maintenance':
-        return 'صيانة';
-      default:
-        return status;
-    }
+  const handleSelectBuilding = (buildingId: string) => {
+    setSelectedBuilding(buildingId);
   };
 
   return (
-    <div className="container mx-auto">
-      <h1 className="text-3xl font-bold mb-8">إدارة الوحدات السكنية</h1>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex space-x-2">
+          <div>
+            <button className="btn btn-primary" onClick={() => setShowAddComplexModal(true)}>
+              إضافة مجمع جديد
+            </button>
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold text-right">إدارة السكن</h1>
+      </div>
+
+      {loading && <div className="loading loading-spinner loading-lg"></div>}
 
       {error && (
-        <div className="alert alert-error mb-6">
-          <p>{error}</p>
-          <button 
-            className="ml-auto" 
-            onClick={() => setError(null)}
-            aria-label="dismiss"
-          >
-            ✕
-          </button>
+        <div className="alert alert-error mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span>{error}</span>
+          <button className="btn btn-sm" onClick={() => setError(null)}>إغلاق</button>
         </div>
       )}
 
-      {loading && complexes.length === 0 ? (
-        <div className="card text-center py-10">
-          <p className="text-lg">جاري تحميل البيانات...</p>
+      <div className="flex justify-between mb-6">
+        <div>
+          <label className="mr-2">المجمع السكني:</label>
+          <select 
+            className="select select-bordered" 
+            value={selectedComplex || ''}
+            onChange={e => setSelectedComplex(e.target.value || null)}
+          >
+            <option value="">اختر مجمع سكني</option>
+            {complexes.map(complex => (
+              <option key={complex.id} value={complex.id}>{complex.name}</option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <>
-          <div className="card mb-6 p-4">
-            <div className="flex flex-wrap md:flex-nowrap gap-4 items-center">
-              <div className="w-full md:w-1/3">
-                <label className="block text-gray-700 mb-2">اختر المجمع السكني:</label>
-                <select 
-                  className="select select-bordered w-full"
-                  value={selectedComplex || ''}
-                  onChange={(e) => setSelectedComplex(e.target.value)}
-                  disabled={complexes.length === 0}
-                >
-                  {complexes.length === 0 ? (
-                    <option disabled>لا توجد مجمعات سكنية</option>
-                  ) : (
-                    complexes.map(complex => (
-                      <option key={complex.id} value={complex.id}>
-                        {complex.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+      </div>
 
-              <div className="w-full md:w-1/3">
-                <label className="block text-gray-700 mb-2">اختر المبنى:</label>
-                <select 
-                  className="select select-bordered w-full"
-                  value={selectedBuilding || ''}
-                  onChange={(e) => setSelectedBuilding(e.target.value)}
-                  disabled={!selectedComplex || buildings.length === 0}
-                >
-                  {buildings.length === 0 ? (
-                    <option disabled>لا توجد مباني متاحة</option>
-                  ) : (
-                    buildings.map(building => (
-                      <option key={building.id} value={building.id}>
-                        {building.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+      <div className="tabs tabs-boxed mb-6">
+        <a 
+          className={`tab ${activeTab === 'visualization' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('visualization')}
+        >
+          عرض الهيكل
+        </a>
+        <a 
+          className={`tab ${activeTab === 'rooms' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('rooms')}
+        >
+          الغرف
+        </a>
+        <a 
+          className={`tab ${activeTab === 'facilities' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('facilities')}
+        >
+          المرافق
+        </a>
+      </div>
 
-              <div className="w-full md:w-1/3 self-end md:text-left mt-4 md:mt-0">
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => setShowAddComplexModal(true)}
-                >
-                  إضافة مجمع جديد
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Visualization Tab */}
+      {activeTab === 'visualization' && (
+        <div className="bg-base-200 rounded-lg p-4 mb-4">
+          <HousingVisualization 
+            complexes={complexes} 
+            onSelectComplex={handleSelectComplex} 
+            onSelectBuilding={handleSelectBuilding}
+          />
+        </div>
+      )}
 
-          <div className="tabs tabs-boxed mb-6">
-            <button 
-              className={`tab ${activeTab === 'rooms' ? 'tab-active' : ''}`}
-              onClick={() => setActiveTab('rooms')}
-            >
-              الغرف
-            </button>
-            <button 
-              className={`tab ${activeTab === 'facilities' ? 'tab-active' : ''}`}
-              onClick={() => setActiveTab('facilities')}
-            >
-              المرافق
-            </button>
-          </div>
-
-          {activeTab === 'rooms' ? (
-            <div className="card p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">الغرف</h2>
-                <button className="btn btn-sm btn-primary" disabled={!selectedBuilding}>إضافة غرفة</button>
-              </div>
-
-              {loading ? (
-                <p className="text-center py-4">جاري تحميل الغرف...</p>
-              ) : !selectedBuilding ? (
-                <p className="text-gray-500 text-center py-4">يرجى اختيار مبنى لعرض الغرف.</p>
-              ) : rooms.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">لا توجد غرف مسجلة لهذا المبنى.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="table w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-right">رقم الغرفة</th>
-                        <th className="text-right">الطابق</th>
-                        <th className="text-right">النوع</th>
-                        <th className="text-right">الحالة</th>
-                        <th className="text-right">الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rooms.map(room => (
-                        <tr key={room.id}>
-                          <td>{room.room_number}</td>
-                          <td>{room.floor}</td>
-                          <td>{room.type}</td>
-                          <td>
-                            <span className={`px-2 py-1 rounded-full text-xs ${getRoomStatusClass(room.status)}`}>
-                              {getRoomStatusLabel(room.status)}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="flex gap-2">
-                              <button className="btn btn-xs btn-ghost">تعديل</button>
-                              <button className="btn btn-xs btn-ghost text-red-500">حذف</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+      {/* Rooms Tab */}
+      {activeTab === 'rooms' && selectedBuilding && (
+        <div className="bg-base-200 rounded-lg p-4">
+          <h2 className="text-xl font-bold mb-4 text-right">الغرف</h2>
+          {rooms.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table w-full">
+                <thead>
+                  <tr>
+                    <th className="text-right">رقم الغرفة</th>
+                    <th className="text-right">النوع</th>
+                    <th className="text-right">الحالة</th>
+                    <th className="text-right">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rooms.map(room => (
+                    <tr key={room.id}>
+                      <td className="text-right">{room.room_number}</td>
+                      <td className="text-right">{room.type}</td>
+                      <td className="text-right">{
+                        room.status === 'available' ? 'متاحة' :
+                        room.status === 'occupied' ? 'مشغولة' : 'صيانة'
+                      }</td>
+                      <td>
+                        <button className="btn btn-xs btn-primary">تفاصيل</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="card p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">المرافق</h2>
-                <button className="btn btn-sm btn-primary" disabled={!selectedBuilding}>إضافة مرفق</button>
-              </div>
-
-              {loading ? (
-                <p className="text-center py-4">جاري تحميل المرافق...</p>
-              ) : !selectedBuilding ? (
-                <p className="text-gray-500 text-center py-4">يرجى اختيار مبنى لعرض المرافق.</p>
-              ) : facilities.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">لا توجد مرافق مسجلة لهذا المبنى.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="table w-full">
-                    <thead>
-                      <tr>
-                        <th className="text-right">الاسم</th>
-                        <th className="text-right">النوع</th>
-                        <th className="text-right">الموقع</th>
-                        <th className="text-right">الإجراءات</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {facilities.map(facility => (
-                        <tr key={facility.id}>
-                          <td>{facility.name}</td>
-                          <td>{facility.type}</td>
-                          <td>{facility.location_description}</td>
-                          <td>
-                            <div className="flex gap-2">
-                              <button className="btn btn-xs btn-ghost">تعديل</button>
-                              <button className="btn btn-xs btn-ghost text-red-500">حذف</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <p className="text-center">لا توجد غرف في هذا المبنى</p>
             </div>
           )}
-        </>
+        </div>
       )}
 
+      {/* Facilities Tab */}
+      {activeTab === 'facilities' && selectedComplex && (
+        <div className="bg-base-200 rounded-lg p-4">
+          <h2 className="text-xl font-bold mb-4 text-right">المرافق</h2>
+          {facilities.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table w-full">
+                <thead>
+                  <tr>
+                    <th className="text-right">الاسم</th>
+                    <th className="text-right">النوع</th>
+                    <th className="text-right">الموقع</th>
+                    <th className="text-right">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {facilities.map(facility => (
+                    <tr key={facility.id}>
+                      <td className="text-right">{facility.name}</td>
+                      <td className="text-right">{facility.type}</td>
+                      <td className="text-right">{facility.location_description}</td>
+                      <td>
+                        <button className="btn btn-xs btn-primary">تفاصيل</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="card p-4">
+              <p className="text-center">لا توجد مرافق في هذا المجمع</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Complex Modal */}
       {showAddComplexModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md p-6 relative">
-            <button 
-              onClick={() => setShowAddComplexModal(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-            >
-              ✕
-            </button>
-            
-            <h3 className="text-xl font-bold mb-6 text-right">إضافة مجمع سكني جديد</h3>
-            
-            <form onSubmit={handleAddComplex}>
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4 text-right">إضافة مجمع سكني جديد</h2>
+            <form onSubmit={handleAddComplex} className="text-right">
               <div className="mb-4">
-                <label className="block text-gray-700 text-right mb-2">
-                  اسم المجمع <span className="text-red-500">*</span>
-                </label>
-                <input 
+                <label className="block text-gray-700 mb-2">اسم المجمع</label>
+                <input
                   type="text"
                   className="input input-bordered w-full"
                   value={newComplex.name}
-                  onChange={(e) => setNewComplex({...newComplex, name: e.target.value})}
+                  onChange={e => setNewComplex({...newComplex, name: e.target.value})}
+                  placeholder="ادخل اسم المجمع السكني"
                   required
                 />
               </div>
-              
               <div className="mb-4">
-                <label className="block text-gray-700 text-right mb-2">
-                  الموقع <span className="text-red-500">*</span>
-                </label>
-                <input 
+                <label className="block text-gray-700 mb-2">الموقع</label>
+                <input
                   type="text"
                   className="input input-bordered w-full"
                   value={newComplex.location}
-                  onChange={(e) => setNewComplex({...newComplex, location: e.target.value})}
+                  onChange={e => setNewComplex({...newComplex, location: e.target.value})}
+                  placeholder="ادخل موقع المجمع"
                   required
                 />
               </div>
-              
               <div className="mb-6">
-                <label className="block text-gray-700 text-right mb-2">
-                  الوصف
-                </label>
-                <textarea 
+                <label className="block text-gray-700 mb-2">الوصف (اختياري)</label>
+                <textarea
                   className="textarea textarea-bordered w-full"
                   value={newComplex.description}
-                  onChange={(e) => setNewComplex({...newComplex, description: e.target.value})}
+                  onChange={e => setNewComplex({...newComplex, description: e.target.value})}
+                  placeholder="وصف إضافي للمجمع"
                   rows={3}
                 />
               </div>
-              
-              <div className="flex justify-end">
+              <div className="flex justify-between">
                 <button
                   type="button"
-                  className="btn btn-ghost ml-2"
+                  className="btn btn-outline"
                   onClick={() => setShowAddComplexModal(false)}
-                  disabled={isSubmitting}
                 >
                   إلغاء
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
                   disabled={isSubmitting}
                 >

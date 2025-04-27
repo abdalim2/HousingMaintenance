@@ -5,16 +5,30 @@ import { PurchaseOrder, PurchaseItem } from '@/models/types';
 export const getPurchaseOrders = async (
   status?: PurchaseOrder['status']
 ): Promise<PurchaseOrder[]> => {
-  let query = supabase.from('purchase_orders').select('*');
-  
-  if (status) {
-    query = query.eq('status', status);
+  try {
+    let query = supabase.from('purchase_orders').select('*');
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    const { data, error } = await query.order('order_date', { ascending: false });
+    
+    if (error) {
+      console.error('Supabase error in getPurchaseOrders:', error);
+      
+      if (error.message.includes('does not exist')) {
+        console.warn('The purchase_orders table might not exist yet. Make sure to run database initialization scripts.');
+      }
+      
+      throw new Error(`Database error: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error('Error in getPurchaseOrders:', err);
+    throw err;
   }
-  
-  const { data, error } = await query.order('order_date', { ascending: false });
-  
-  if (error) throw error;
-  return data || [];
 };
 
 export const getPurchaseOrderById = async (id: string): Promise<PurchaseOrder | null> => {
@@ -154,66 +168,117 @@ export const generateMonthlyPurchaseOrder = async (
   month: number,
   createdBy: string
 ): Promise<PurchaseOrder> => {
-  // 1. Get all maintenance requests for the month
-  const startDate = new Date(year, month - 1, 1).toISOString();
-  const endDate = new Date(year, month, 0).toISOString();
-  
-  // Get all maintenance items needed for requests in the specified month
-  const { data: maintenanceItems, error: itemsError } = await supabase
-    .from('maintenance_items')
-    .select(`
-      *,
-      maintenance_requests:maintenance_id (
-        id,
-        reported_date
-      )
-    `)
-    .gte('maintenance_requests.reported_date', startDate)
-    .lte('maintenance_requests.reported_date', endDate);
-  
-  if (itemsError) throw itemsError;
-  
-  if (!maintenanceItems || maintenanceItems.length === 0) {
-    throw new Error('No maintenance items found for the specified month');
-  }
-  
-  // 2. Group items by item_id and sum quantities
-  const itemQuantities: Record<string, number> = {};
-  
-  maintenanceItems.forEach(item => {
-    if (!itemQuantities[item.item_id]) {
-      itemQuantities[item.item_id] = 0;
+  try {
+    // 1. Get all maintenance requests for the month
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 0).toISOString();
+    
+    // Get all maintenance requests for the specified month first
+    const { data: maintenanceRequests, error: requestsError } = await supabase
+      .from('maintenance_requests')
+      .select('id')
+      .gte('reported_date', startDate)
+      .lte('reported_date', endDate);
+    
+    if (requestsError) {
+      // If the table doesn't exist, create a purchase order without items
+      if (requestsError.message.includes('does not exist')) {
+        console.warn('Maintenance requests table does not exist yet. Creating empty purchase order.');
+        return createEmptyPurchaseOrder(year, month, createdBy);
+      }
+      throw requestsError;
     }
-    itemQuantities[item.item_id] += item.quantity_needed;
-  });
-  
-  // 3. Create a new purchase order
+    
+    if (!maintenanceRequests || maintenanceRequests.length === 0) {
+      console.log('No maintenance requests found for the specified month. Creating empty purchase order.');
+      return createEmptyPurchaseOrder(year, month, createdBy);
+    }
+    
+    // Get maintenance items for these requests
+    const maintenanceIds = maintenanceRequests.map(req => req.id);
+    const { data: maintenanceItems, error: itemsError } = await supabase
+      .from('maintenance_items')
+      .select('*')
+      .in('maintenance_id', maintenanceIds);
+    
+    if (itemsError) {
+      // If the table doesn't exist, create a purchase order without items
+      if (itemsError.message.includes('does not exist')) {
+        console.warn('Maintenance items table does not exist yet. Creating empty purchase order.');
+        return createEmptyPurchaseOrder(year, month, createdBy);
+      }
+      throw itemsError;
+    }
+    
+    if (!maintenanceItems || maintenanceItems.length === 0) {
+      console.log('No maintenance items found for the specified month. Creating empty purchase order.');
+      return createEmptyPurchaseOrder(year, month, createdBy);
+    }
+    
+    // 2. Group items by item_id and sum quantities
+    const itemQuantities: Record<string, number> = {};
+    
+    maintenanceItems.forEach(item => {
+      if (!itemQuantities[item.item_id]) {
+        itemQuantities[item.item_id] = 0;
+      }
+      itemQuantities[item.item_id] += item.quantity_needed;
+    });
+    
+    // 3. Create a new purchase order
+    const { data: purchaseOrder, error: orderError } = await supabase
+      .from('purchase_orders')
+      .insert([{
+        order_date: new Date().toISOString(),
+        status: 'draft',
+        created_by: createdBy,
+        notes: `Auto-generated order for ${year}-${month.toString().padStart(2, '0')}`
+      }])
+      .select()
+      .single();
+    
+    if (orderError) throw orderError;
+    
+    // 4. Create purchase items for each item type
+    if (Object.keys(itemQuantities).length > 0) {
+      const purchaseItems = Object.entries(itemQuantities).map(([itemId, quantity]) => ({
+        purchase_order_id: purchaseOrder.id,
+        item_id: itemId,
+        quantity: quantity
+      }));
+      
+      const { error: purchaseItemsError } = await supabase
+        .from('purchase_items')
+        .insert(purchaseItems);
+      
+      if (purchaseItemsError) throw purchaseItemsError;
+    }
+    
+    return purchaseOrder;
+  } catch (error: any) {
+    console.error('Error generating monthly purchase order:', error);
+    throw error;
+  }
+};
+
+// Helper function to create an empty purchase order when no maintenance items are found
+const createEmptyPurchaseOrder = async (
+  year: number,
+  month: number,
+  createdBy: string
+): Promise<PurchaseOrder> => {
   const { data: purchaseOrder, error: orderError } = await supabase
     .from('purchase_orders')
     .insert([{
       order_date: new Date().toISOString(),
       status: 'draft',
       created_by: createdBy,
-      notes: `Auto-generated order for ${year}-${month.toString().padStart(2, '0')}`
+      notes: `Auto-generated order for ${year}-${month.toString().padStart(2, '0')} (No maintenance items found)`
     }])
     .select()
     .single();
   
   if (orderError) throw orderError;
-  
-  // 4. Create purchase items for each item type
-  const purchaseItems = Object.entries(itemQuantities).map(([itemId, quantity]) => ({
-    purchase_order_id: purchaseOrder.id,
-    item_id: itemId,
-    quantity: quantity
-  }));
-  
-  const { error: purchaseItemsError } = await supabase
-    .from('purchase_items')
-    .insert(purchaseItems);
-  
-  if (purchaseItemsError) throw purchaseItemsError;
-  
   return purchaseOrder;
 };
 

@@ -28,9 +28,9 @@ export default function PurchaseOrdersPage() {
           filterStatus as PurchaseOrder['status'] || undefined
         );
         setPurchaseOrders(orders);
-      } catch (err) {
-        console.error('Error fetching purchase orders:', err);
-        setError('حدث خطأ أثناء تحميل طلبات الشراء. الرجاء المحاولة مرة أخرى.');
+      } catch (err: any) {
+        console.error('Error fetching purchase orders:', err.message || JSON.stringify(err));
+        setError(`حدث خطأ أثناء تحميل طلبات الشراء: ${err.message || 'خطأ غير معروف'}. الرجاء المحاولة مرة أخرى.`);
       } finally {
         setLoading(false);
       }

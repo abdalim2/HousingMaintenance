@@ -7,24 +7,38 @@ export const getMaintenanceRequests = async (
   buildingId?: string, 
   status?: MaintenanceRequest['status']
 ): Promise<MaintenanceRequest[]> => {
-  let query = supabase.from('maintenance_requests').select('*');
-  
-  if (complexId) {
-    query = query.eq('complex_id', complexId);
+  try {
+    let query = supabase.from('maintenance_requests').select('*');
+    
+    if (complexId) {
+      query = query.eq('complex_id', complexId);
+    }
+    
+    if (buildingId) {
+      query = query.eq('building_id', buildingId);
+    }
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+    
+    const { data, error } = await query.order('reported_date', { ascending: false });
+    
+    if (error) {
+      console.error('Supabase error in getMaintenanceRequests:', error);
+      
+      if (error.message.includes('does not exist')) {
+        console.warn('The maintenance_requests table might not exist yet. Make sure to run database initialization scripts.');
+      }
+      
+      throw new Error(`Database error: ${error.message}`);
+    }
+    
+    return data || [];
+  } catch (err) {
+    console.error('Error in getMaintenanceRequests:', err);
+    throw err;
   }
-  
-  if (buildingId) {
-    query = query.eq('building_id', buildingId);
-  }
-  
-  if (status) {
-    query = query.eq('status', status);
-  }
-  
-  const { data, error } = await query.order('reported_date', { ascending: false });
-  
-  if (error) throw error;
-  return data || [];
 };
 
 export const getMaintenanceRequestById = async (id: string): Promise<MaintenanceRequest | null> => {

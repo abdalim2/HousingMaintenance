@@ -1,159 +1,160 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/neondb';
-import { Building } from '@/models/types';
 
-// وظيفة للتعامل مع الأخطاء وإرجاع استجابة موحدة
-function handleError(error: any) {
-  console.error('خطأ في واجهة API للمباني:', error);
-  
-  return NextResponse.json(
-    { error: error.message || 'حدث خطأ غير متوقع' },
-    { status: 500 }
-  );
-}
-
-// الحصول على جميع المباني (اختياريًا بناءً على معرف المجمع)
 export async function GET(request: Request) {
   try {
+    console.log('[API] GET /api/housing/buildings - Starting request');
+    
+    // Extract query parameters
     const { searchParams } = new URL(request.url);
     const complexId = searchParams.get('complexId');
     
-    let queryText = 'SELECT * FROM buildings';
-    const values: any[] = [];
+    console.log(`[API] Fetching buildings for complexId: ${complexId || 'all'}`);
     
+    // Build SQL query
+    let sqlQuery = 'SELECT * FROM buildings';
+    const params: any[] = [];
+    
+    // Add filters
     if (complexId) {
-      queryText += ' WHERE complex_id = $1';
-      values.push(complexId);
+      sqlQuery += ' WHERE complex_id = $1';
+      params.push(complexId);
     }
     
-    const result = await query(queryText, values);
-    return NextResponse.json(result.rows);
-  } catch (error) {
-    return handleError(error);
+    // Execute query with detailed error handling
+    try {
+      const result = await query(sqlQuery, params);
+      
+      console.log(`[API] Successfully fetched ${result.rows.length} buildings`);
+      return NextResponse.json(result.rows || []);
+    } catch (queryError: any) {
+      console.error('[API] Exception during query execution:', queryError);
+      return NextResponse.json(
+        { error: `Query execution failed: ${queryError.message}` }, 
+        { status: 500 }
+      );
+    }
+  } catch (error: any) {
+    console.error('[API] Unexpected error in buildings API:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch buildings: ' + (error.message || 'Unknown error') }, 
+      { status: 500 }
+    );
   }
 }
 
-// إنشاء مبنى جديد
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const building = await request.json();
     
-    // التحقق من وجود البيانات المطلوبة
-    if (!body.complex_id || !body.name || body.floors === undefined) {
+    // Validate required fields
+    if (!building.name || !building.complex_id) {
       return NextResponse.json(
-        { error: 'معرف المجمع، اسم المبنى وعدد الطوابق مطلوبة' },
+        { error: 'Building name and complex ID are required' }, 
         { status: 400 }
       );
     }
     
-    // إدخال المبنى الجديد في قاعدة البيانات
-    const queryText = `
-      INSERT INTO buildings (complex_id, name, floors, description)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `;
+    // Extract fields from building object
+    const fields = Object.keys(building);
+    const values = fields.map((field) => building[field]);
+    const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
     
-    const result = await query(queryText, [
-      body.complex_id,
-      body.name,
-      body.floors,
-      body.description || ''
-    ]);
+    // Build INSERT query
+    const sqlQuery = 
+      `INSERT INTO buildings (${fields.join(', ')}) 
+       VALUES (${placeholders})
+       RETURNING *`;
     
-    return NextResponse.json(result.rows[0], { status: 201 });
-  } catch (error) {
-    return handleError(error);
+    const result = await query(sqlQuery, values);
+    
+    if (!result.rowCount) {
+      return NextResponse.json(
+        { error: 'Failed to create building' }, 
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json(result.rows[0]);
+  } catch (error: any) {
+    console.error('Unexpected error creating building:', error);
+    return NextResponse.json(
+      { error: `Failed to create building: ${error.message}` }, 
+      { status: 500 }
+    );
   }
 }
 
-// تحديث مبنى
 export async function PUT(request: Request) {
   try {
-    const body = await request.json();
+    const updates = await request.json();
+    const { id, ...buildingData } = updates;
     
-    if (!body.id) {
+    if (!id) {
+      return NextResponse.json({ error: 'Building ID is required' }, { status: 400 });
+    }
+    
+    // Build the SET part of the query
+    const fields = Object.keys(buildingData);
+    const setClause = fields
+      .map((field, index) => `${field} = $${index + 2}`)
+      .join(', ');
+    
+    // Build values array
+    const values = [id, ...fields.map(field => buildingData[field])];
+    
+    // Build UPDATE query
+    const sqlQuery = 
+      `UPDATE buildings 
+       SET ${setClause}
+       WHERE id = $1
+       RETURNING *`;
+    
+    const result = await query(sqlQuery, values);
+    
+    if (!result.rowCount) {
       return NextResponse.json(
-        { error: 'معرف المبنى مطلوب للتحديث' },
-        { status: 400 }
-      );
-    }
-    
-    const fields: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-    
-    if (body.complex_id !== undefined) {
-      fields.push(`complex_id = $${paramIndex}`);
-      values.push(body.complex_id);
-      paramIndex++;
-    }
-    
-    if (body.name !== undefined) {
-      fields.push(`name = $${paramIndex}`);
-      values.push(body.name);
-      paramIndex++;
-    }
-    
-    if (body.floors !== undefined) {
-      fields.push(`floors = $${paramIndex}`);
-      values.push(body.floors);
-      paramIndex++;
-    }
-    
-    if (body.description !== undefined) {
-      fields.push(`description = $${paramIndex}`);
-      values.push(body.description);
-      paramIndex++;
-    }
-    
-    if (fields.length === 0) {
-      return NextResponse.json(
-        { error: 'لم يتم تقديم أي حقول للتحديث' },
-        { status: 400 }
-      );
-    }
-    
-    values.push(body.id);
-    
-    const queryText = `
-      UPDATE buildings
-      SET ${fields.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING *
-    `;
-    
-    const result = await query(queryText, values);
-    
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: `لم يتم العثور على مبنى بالمعرف ${body.id}` },
+        { error: 'Building not found or no changes made' }, 
         { status: 404 }
       );
     }
     
     return NextResponse.json(result.rows[0]);
-  } catch (error) {
-    return handleError(error);
+  } catch (error: any) {
+    console.error('Unexpected error updating building:', error);
+    return NextResponse.json(
+      { error: `Failed to update building: ${error.message}` }, 
+      { status: 500 }
+    );
   }
 }
 
-// حذف مبنى
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
     if (!id) {
+      return NextResponse.json({ error: 'Building ID is required' }, { status: 400 });
+    }
+    
+    // Delete building
+    const sqlQuery = 'DELETE FROM buildings WHERE id = $1';
+    const result = await query(sqlQuery, [id]);
+    
+    if (!result.rowCount) {
       return NextResponse.json(
-        { error: 'معرف المبنى مطلوب للحذف' },
-        { status: 400 }
+        { error: 'Building not found' }, 
+        { status: 404 }
       );
     }
     
-    await query('DELETE FROM buildings WHERE id = $1', [id]);
-    
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return handleError(error);
+  } catch (error: any) {
+    console.error('Unexpected error deleting building:', error);
+    return NextResponse.json(
+      { error: `Failed to delete building: ${error.message}` }, 
+      { status: 500 }
+    );
   }
 }

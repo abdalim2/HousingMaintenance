@@ -233,14 +233,43 @@ export const deleteBuilding = async (id: string): Promise<void> => {
 export const getRooms = async (buildingId?: string): Promise<Room[]> => {
   try {
     const url = buildingId ? `/api/housing/rooms?buildingId=${buildingId}` : '/api/housing/rooms';
-    const response = await fetch(url);
+    
+    console.log(`Fetching rooms from ${url}`);
+    const response = await fetch(url, {
+      // Adding cache: no-store to prevent caching issues
+      cache: 'no-store'
+    });
     
     if (!response.ok) {
-      throw new Error(`فشل في جلب الغرف: ${response.statusText}`);
+      const errorText = await response.text();
+      let errorMessage;
+      try {
+        // Try to parse as JSON
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || response.statusText;
+      } catch {
+        // If not JSON, use as plain text
+        errorMessage = errorText || response.statusText;
+      }
+      
+      console.error(`Error response from rooms API: ${errorMessage}`);
+      throw new Error(`فشل في جلب الغرف: ${errorMessage}`);
     }
     
-    return await response.json();
-  } catch (error) {
+    const data = await response.json();
+    
+    // Map database schema to the expected Room interface if needed
+    return data.map((room: any) => ({
+      id: room.id,
+      building_id: room.building_id,
+      room_number: room.room_number,
+      type: room.type,
+      status: room.status || 'available',
+      floor: room.floor,
+      // Add other expected fields with defaults
+      name: room.room_number // Use room_number as name if not present
+    }));
+  } catch (error: any) {
     console.error('فشل في جلب الغرف:', error);
     throw error;
   }
@@ -259,14 +288,40 @@ export const getFacilities = async (complexId?: string, buildingId?: string): Pr
       url += `?${params.toString()}`;
     }
     
-    const response = await fetch(url);
+    console.log(`Fetching facilities from ${url}`);
+    const response = await fetch(url, {
+      // Adding cache: no-store to prevent caching issues
+      cache: 'no-store' 
+    });
     
     if (!response.ok) {
-      throw new Error(`فشل في جلب المرافق: ${response.statusText}`);
+      const errorText = await response.text();
+      let errorMessage;
+      try {
+        // Try to parse as JSON
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || response.statusText;
+      } catch {
+        // If not JSON, use as plain text
+        errorMessage = errorText || response.statusText;
+      }
+      
+      console.error(`Error response from facilities API: ${errorMessage}`);
+      throw new Error(`فشل في جلب المرافق: ${errorMessage}`);
     }
     
-    return await response.json();
-  } catch (error) {
+    const data = await response.json();
+    
+    // Map database schema to the expected Facility interface if needed
+    return data.map((facility: any) => ({
+      id: facility.id,
+      complex_id: facility.complex_id,
+      building_id: facility.building_id,
+      name: facility.name,
+      type: facility.type,
+      location_description: facility.location_description
+    }));
+  } catch (error: any) {
     console.error('فشل في جلب المرافق:', error);
     throw error;
   }
