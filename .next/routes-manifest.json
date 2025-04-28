@@ -1,0 +1,121 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/housing",
+      "regex": "^/housing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/housing(?:/)?$"
+    },
+    {
+      "page": "/housing/management",
+      "regex": "^/housing/management(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/housing/management(?:/)?$"
+    },
+    {
+      "page": "/inventory",
+      "regex": "^/inventory(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/inventory(?:/)?$"
+    },
+    {
+      "page": "/inventory/add",
+      "regex": "^/inventory/add(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/inventory/add(?:/)?$"
+    },
+    {
+      "page": "/inventory/categories",
+      "regex": "^/inventory/categories(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/inventory/categories(?:/)?$"
+    },
+    {
+      "page": "/inventory/file-processor",
+      "regex": "^/inventory/file\\-processor(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/inventory/file\\-processor(?:/)?$"
+    },
+    {
+      "page": "/maintenance",
+      "regex": "^/maintenance(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/maintenance(?:/)?$"
+    },
+    {
+      "page": "/maintenance/new",
+      "regex": "^/maintenance/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/maintenance/new(?:/)?$"
+    },
+    {
+      "page": "/purchase-orders",
+      "regex": "^/purchase\\-orders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/purchase\\-orders(?:/)?$"
+    },
+    {
+      "page": "/purchase-orders/monthly",
+      "regex": "^/purchase\\-orders/monthly(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/purchase\\-orders/monthly(?:/)?$"
+    },
+    {
+      "page": "/purchase-orders/new",
+      "regex": "^/purchase\\-orders/new(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/purchase\\-orders/new(?:/)?$"
+    },
+    {
+      "page": "/reports",
+      "regex": "^/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reports(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "RSC",
+    "varyHeader": "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch",
+    "prefetchHeader": "Next-Router-Prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "Next-Router-Segment-Prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  },
+  "rewrites": []
+}

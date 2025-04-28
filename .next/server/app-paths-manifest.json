@@ -1,4 +1,14 @@
 {
+  "/api/diagnostics/route": "app/api/diagnostics/route.js",
+  "/api/housing/buildings/route": "app/api/housing/buildings/route.js",
+  "/api/housing/facilities/route": "app/api/housing/facilities/route.js",
+  "/api/housing/rooms/route": "app/api/housing/rooms/route.js",
+  "/api/housing/route": "app/api/housing/route.js",
+  "/housing/management/page": "app/housing/management/page.js",
+  "/housing/page": "app/housing/page.js",
   "/inventory/page": "app/inventory/page.js",
-  "/page": "app/page.js"
+  "/maintenance/new/page": "app/maintenance/new/page.js",
+  "/maintenance/page": "app/maintenance/page.js",
+  "/page": "app/page.js",
+  "/purchase-orders/monthly/page": "app/purchase-orders/monthly/page.js"
 }
