@@ -1,3 +1,5 @@
 {
+  "/api/housing/route": "app/api/housing/route.js",
+  "/housing/page": "app/housing/page.js",
   "/page": "app/page.js"
 }

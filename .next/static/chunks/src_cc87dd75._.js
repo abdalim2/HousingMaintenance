@@ -20,9 +20,16 @@ __turbopack_context__.s({
     "updateBuilding": (()=>updateBuilding),
     "updateComplex": (()=>updateComplex)
 });
+// Helper function to get absolute URL
+function getAbsoluteUrl(path) {
+    // In browser, use window.location.origin
+    // In Node.js (server-side), we need to construct it from environment variables
+    const baseUrl = ("TURBOPACK compile-time truthy", 1) ? window.location.origin : ("TURBOPACK unreachable", undefined);
+    return `${baseUrl}${path}`;
+}
 const getComplexes = async ()=>{
     try {
-        const response = await fetch('/api/housing');
+        const response = await fetch(getAbsoluteUrl('/api/housing'));
         if (!response.ok) {
             throw new Error(`فشل في جلب المجمعات السكنية: ${response.statusText}`);
         }
@@ -34,7 +41,7 @@ const getComplexes = async ()=>{
 };
 const getComplexById = async (id)=>{
     try {
-        const response = await fetch(`/api/housing/${id}`);
+        const response = await fetch(getAbsoluteUrl(`/api/housing/${id}`));
         if (response.status === 404) {
             return null;
         }
@@ -50,11 +57,10 @@ const getComplexById = async (id)=>{
 const createComplex = async (complex)=>{
     console.log('محاولة إنشاء مجمع سكني جديد:', complex);
     try {
-        // التحقق من وجود الحقول المطلوبة
         if (!complex.name || !complex.location) {
             throw new Error('اسم المجمع والموقع مطلوبان');
         }
-        const response = await fetch('/api/housing', {
+        const response = await fetch(getAbsoluteUrl('/api/housing'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -75,7 +81,7 @@ const createComplex = async (complex)=>{
 };
 const updateComplex = async (id, updates)=>{
     try {
-        const response = await fetch('/api/housing', {
+        const response = await fetch(getAbsoluteUrl('/api/housing'), {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -97,7 +103,7 @@ const updateComplex = async (id, updates)=>{
 };
 const deleteComplex = async (id)=>{
     try {
-        const response = await fetch(`/api/housing?id=${id}`, {
+        const response = await fetch(getAbsoluteUrl(`/api/housing?id=${id}`), {
             method: 'DELETE'
         });
         if (!response.ok) {
@@ -111,7 +117,7 @@ const deleteComplex = async (id)=>{
 };
 const testDatabaseConnection = async ()=>{
     try {
-        const response = await fetch('/api/housing', {
+        const response = await fetch(getAbsoluteUrl('/api/housing'), {
             method: 'OPTIONS'
         });
         if (!response.ok) {
@@ -126,7 +132,7 @@ const testDatabaseConnection = async ()=>{
 };
 const getBuildings = async (complexId)=>{
     try {
-        const url = complexId ? `/api/housing/buildings?complexId=${complexId}` : '/api/housing/buildings';
+        const url = complexId ? getAbsoluteUrl(`/api/housing/buildings?complexId=${complexId}`) : getAbsoluteUrl('/api/housing/buildings');
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`فشل في جلب المباني: ${response.statusText}`);
@@ -139,7 +145,7 @@ const getBuildings = async (complexId)=>{
 };
 const getBuildingById = async (id)=>{
     try {
-        const response = await fetch(`/api/housing/buildings/${id}`);
+        const response = await fetch(getAbsoluteUrl(`/api/housing/buildings/${id}`));
         if (response.status === 404) {
             return null;
         }
@@ -154,7 +160,7 @@ const getBuildingById = async (id)=>{
 };
 const createBuilding = async (building)=>{
     try {
-        const response = await fetch('/api/housing/buildings', {
+        const response = await fetch(getAbsoluteUrl('/api/housing/buildings'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -173,7 +179,7 @@ const createBuilding = async (building)=>{
 };
 const updateBuilding = async (id, updates)=>{
     try {
-        const response = await fetch('/api/housing/buildings', {
+        const response = await fetch(getAbsoluteUrl('/api/housing/buildings'), {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -195,7 +201,7 @@ const updateBuilding = async (id, updates)=>{
 };
 const deleteBuilding = async (id)=>{
     try {
-        const response = await fetch(`/api/housing/buildings?id=${id}`, {
+        const response = await fetch(getAbsoluteUrl(`/api/housing/buildings?id=${id}`), {
             method: 'DELETE'
         });
         if (!response.ok) {
@@ -209,28 +215,24 @@ const deleteBuilding = async (id)=>{
 };
 const getRooms = async (buildingId)=>{
     try {
-        const url = buildingId ? `/api/housing/rooms?buildingId=${buildingId}` : '/api/housing/rooms';
+        const url = buildingId ? getAbsoluteUrl(`/api/housing/rooms?buildingId=${buildingId}`) : getAbsoluteUrl('/api/housing/rooms');
         console.log(`Fetching rooms from ${url}`);
         const response = await fetch(url, {
-            // Adding cache: no-store to prevent caching issues
             cache: 'no-store'
         });
         if (!response.ok) {
             const errorText = await response.text();
             let errorMessage;
             try {
-                // Try to parse as JSON
                 const errorData = JSON.parse(errorText);
                 errorMessage = errorData.error || response.statusText;
             } catch  {
-                // If not JSON, use as plain text
                 errorMessage = errorText || response.statusText;
             }
             console.error(`Error response from rooms API: ${errorMessage}`);
             throw new Error(`فشل في جلب الغرف: ${errorMessage}`);
         }
         const data = await response.json();
-        // Map database schema to the expected Room interface if needed
         return data.map((room)=>({
                 id: room.id,
                 building_id: room.building_id,
@@ -238,8 +240,7 @@ const getRooms = async (buildingId)=>{
                 type: room.type,
                 status: room.status || 'available',
                 floor: room.floor,
-                // Add other expected fields with defaults
-                name: room.room_number // Use room_number as name if not present
+                name: room.room_number
             }));
     } catch (error) {
         console.error('فشل في جلب الغرف:', error);
@@ -255,27 +256,24 @@ const getFacilities = async (complexId, buildingId)=>{
         if (params.toString()) {
             url += `?${params.toString()}`;
         }
-        console.log(`Fetching facilities from ${url}`);
-        const response = await fetch(url, {
-            // Adding cache: no-store to prevent caching issues
+        const absoluteUrl = getAbsoluteUrl(url);
+        console.log(`Fetching facilities from ${absoluteUrl}`);
+        const response = await fetch(absoluteUrl, {
             cache: 'no-store'
         });
         if (!response.ok) {
             const errorText = await response.text();
             let errorMessage;
             try {
-                // Try to parse as JSON
                 const errorData = JSON.parse(errorText);
                 errorMessage = errorData.error || response.statusText;
             } catch  {
-                // If not JSON, use as plain text
                 errorMessage = errorText || response.statusText;
             }
             console.error(`Error response from facilities API: ${errorMessage}`);
             throw new Error(`فشل في جلب المرافق: ${errorMessage}`);
         }
         const data = await response.json();
-        // Map database schema to the expected Facility interface if needed
         return data.map((facility)=>({
                 id: facility.id,
                 complex_id: facility.complex_id,
