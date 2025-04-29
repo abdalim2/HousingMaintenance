@@ -1,0 +1,38 @@
+{
+  "node": {
+    "70bb6ee1ec2b889e82cd193d1be01daa9a9933b2af": {
+      "workers": {
+        "app/maintenance/page": {
+          "moduleId": "[project]/.next-internal/server/app/maintenance/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/app/api/server-actions/maintenance-actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/app/api/server-actions/housing-actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true
+        }
+      },
+      "layer": {
+        "app/maintenance/page": "action-browser"
+      }
+    },
+    "00bb2d82c6928939996d181af8789efc1543424a70": {
+      "workers": {
+        "app/maintenance/page": {
+          "moduleId": "[project]/.next-internal/server/app/maintenance/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/app/api/server-actions/maintenance-actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/app/api/server-actions/housing-actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true
+        }
+      },
+      "layer": {
+        "app/maintenance/page": "action-browser"
+      }
+    },
+    "4068c37e97217c3e9e4ef4b719b483eb451ec8170b": {
+      "workers": {
+        "app/maintenance/page": {
+          "moduleId": "[project]/.next-internal/server/app/maintenance/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/app/api/server-actions/maintenance-actions.ts [app-rsc] (ecmascript)\", ACTIONS_MODULE1 => \"[project]/src/app/api/server-actions/housing-actions.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true
+        }
+      },
+      "layer": {
+        "app/maintenance/page": "action-browser"
+      }
+    }
+  },
+  "edge": {}
+}

@@ -1,0 +1,27 @@
+{
+  "node": {
+    "70d50e8e052b108e5f3f35d8cb4a7a182015340ace": {
+      "workers": {
+        "app/reports/page": {
+          "moduleId": "[project]/.next-internal/server/app/reports/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/lib/neondb.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true
+        }
+      },
+      "layer": {
+        "app/reports/page": "action-browser"
+      }
+    },
+    "70db5249a5ae8d818fde80030b0be10f16cc76d905": {
+      "workers": {
+        "app/reports/page": {
+          "moduleId": "[project]/.next-internal/server/app/reports/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/lib/neondb.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true
+        }
+      },
+      "layer": {
+        "app/reports/page": "action-browser"
+      }
+    }
+  },
+  "edge": {}
+}

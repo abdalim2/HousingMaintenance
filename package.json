@@ -1,0 +1,45 @@
+{
+  "name": "housingmaintenance",
+  "version": "1.0.0",
+  "description": "Housing maintenance management system for residential complexes",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "housing",
+    "maintenance",
+    "management"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.16",
+    "@types/node": "^22.15.2",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "next": "^15.3.1",
+    "nprogress": "^0.2.0",
+    "pg": "^8.15.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.8.3",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/nprogress": "^0.2.3",
+    "@types/pg": "^8.11.14",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.16",
+    "node-libs-browser": "^2.2.1",
+    "path-browserify": "^1.0.1",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.3"
+  }
+}
